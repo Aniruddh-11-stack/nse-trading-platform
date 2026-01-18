@@ -77,6 +77,8 @@ class Signal(BaseModel):
     whale_vol: bool = False
     sniper_trend: bool = False
     win_rate: float = 0.0
+    wins: int = 0
+    total_trades: int = 0
     sector: str = "N/A"
 
 @app.post("/api/test/inject")

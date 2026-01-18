@@ -70,6 +70,21 @@
                         </div>
                     </header>
 
+                    <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-400 glass p-4 rounded-xl">
+                        <div>
+                            <strong className="text-purple-400 text-sm">WHALE 🐳</strong>
+                            <p>Volume is &gt; 200% of average. Indicates institutional activity.</p>
+                        </div>
+                        <div>
+                            <strong className="text-blue-400 text-sm">SNIPER 🎯</strong>
+                            <p>Trade aligns with Daily Trend (Price &gt; 200 EMA). Higher success probability.</p>
+                        </div>
+                        <div>
+                            <strong className="text-yellow-400 text-sm">Win Rate (30d)</strong>
+                            <p>% of similar signals in last 30 days that moved 1% in favor. Shows historical reliability.</p>
+                        </div>
+                    </div>
+
                     {loading && signals.length === 0 ? (
                         <div className="text-center py-20 text-slate-500 animate-pulse">Scanning Market...</div>
                     ) : (
@@ -99,7 +114,7 @@
                                             <div className="text-xl font-mono text-white">₹{s.price}</div>
                                             <div className="mt-2 text-xs text-slate-400">Win Rate (30d)</div>
                                             <div className={`font-bold ${s.win_rate > 60 ? 'text-green-400' : 'text-yellow-400'}`}>
-                                                {s.win_rate}%
+                                                {s.win_rate}% <span className="text-[10px] text-slate-500 font-normal">({s.wins}/{s.total_trades})</span>
                                             </div>
                                         </div>
 

@@ -146,6 +146,8 @@ def scan_stocks():
                 "whale_vol": is_whale,
                 "sniper_trend": is_sniper_aligned,
                 "win_rate": round(win_rate, 1),
+                "wins": wins,
+                "total_trades": total_trades,
                 "sector": sector
             })
             
