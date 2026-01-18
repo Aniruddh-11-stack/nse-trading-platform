@@ -45,18 +45,25 @@ def job():
 
 @app.on_event("startup")
 def startup_event():
-    # Start scheduler in a separate thread
-    def run_scheduler():
-        # Run once immediately
-        job()
-        # Then schedule
-        schedule.every(5).minutes.do(job)
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
-            
-    t = threading.Thread(target=run_scheduler, daemon=True)
-    t.start()
+    # Only run the background scheduler if NOT on Vercel (local mode)
+    if not os.getenv("VERCEL"):
+        def run_scheduler():
+            # Run once immediately
+            job()
+            # Then schedule
+            schedule.every(5).minutes.do(job)
+            while True:
+                schedule.run_pending()
+                time.sleep(1)
+                
+        t = threading.Thread(target=run_scheduler, daemon=True)
+        t.start()
+
+@app.get("/api/cron")
+def trigger_scan():
+    """Endpoint for Vercel Cron to trigger the scan"""
+    job()
+    return {"status": "Scan triggered"}
 
 @app.get("/api/signals")
 def get_signals():
