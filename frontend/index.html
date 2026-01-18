@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSE 200 CCI Scanner</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+
+<body class="p-8">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function App() {
+            const [signals, setSignals] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [lastUpdated, setLastUpdated] = useState(null);
+
+            const fetchSignals = async () => {
+                setLoading(true);
+                try {
+                    const res = await fetch('/api/signals');
+                    const data = await res.json();
+                    setSignals(data);
+                    setLastUpdated(new Date().toLocaleTimeString());
+                } catch (err) {
+                    console.error("Failed to fetch signals", err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                fetchSignals();
+                const interval = setInterval(fetchSignals, 60000); // Poll every minute
+                return () => clearInterval(interval);
+            }, []);
+
+            return (
+                <div className="max-w-4xl mx-auto">
+                    <header className="mb-8 flex justify-between items-center">
+                        <div>
+                            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
+                                NSE 200 CCI Scanner
+                            </h1>
+                            <p className="text-slate-400 mt-2">Monitoring 15m Timeframe for CCI &gt; 100 or CCI &lt; -100</p>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-sm text-slate-400">Last Updated</div>
+                            <div className="font-mono text-xl">{lastUpdated || '--:--:--'}</div>
+                        </div>
+                    </header>
+
+                    {loading && signals.length === 0 ? (
+                        <div className="text-center py-20 text-slate-500 animate-pulse">Scanning Market...</div>
+                    ) : (
+                        <div className="grid gap-4">
+                            {signals.length === 0 ? (
+                                <div className="glass p-8 rounded-xl text-center text-slate-400">
+                                    No stocks currently crossing CCI 100.
+                                </div>
+                            ) : (
+                                signals.map((s, i) => (
+                                    <div key={i} className="glass p-6 rounded-xl flex justify-between items-center hover:bg-slate-800 transition-colors">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-white">{s.symbol}</h2>
+                                            <div className={`text-sm font-bold ${s.type === 'BULLISH' ? 'text-green-400' : 'text-red-400'}`}>
+                                                {s.type}
+                                            </div>
+                                            <div className="text-sm text-slate-400">{new Date(s.time).toLocaleString()}</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-sm text-slate-400">Price</div>
+                                            <div className="text-xl font-mono text-white">₹{s.price}</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-sm text-slate-400">CCI</div>
+                                            <div className={`text-2xl font-mono font-bold ${s.type === 'BULLISH' ? 'text-green-400' : 'text-red-400'}`}>
+                                                {s.cci.toFixed(2)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

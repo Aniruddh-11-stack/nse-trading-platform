@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+nsepython
+pandas
+schedule
+pydantic
+python-dotenv
+requests
