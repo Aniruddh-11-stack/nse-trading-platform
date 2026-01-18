@@ -82,16 +82,27 @@
                                 signals.map((s, i) => (
                                     <div key={i} className="glass p-6 rounded-xl flex justify-between items-center hover:bg-slate-800 transition-colors">
                                         <div>
-                                            <h2 className="text-2xl font-bold text-white">{s.symbol}</h2>
-                                            <div className={`text-sm font-bold ${s.type === 'BULLISH' ? 'text-green-400' : 'text-red-400'}`}>
-                                                {s.type}
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h2 className="text-2xl font-bold text-white">{s.symbol}</h2>
+                                                <span className="bg-slate-700 text-xs px-2 py-0.5 rounded text-slate-300">{s.sector || 'N/A'}</span>
                                             </div>
-                                            <div className="text-sm text-slate-400">{new Date(s.time).toLocaleString()}</div>
+                                            <div className={`text-sm font-bold ${s.type === 'BULLISH' ? 'text-green-400' : 'text-red-400'} flex items-center gap-2`}>
+                                                {s.type}
+                                                {s.whale_vol && <span className="bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded ml-2">WHALE 🐳</span>}
+                                                {s.sniper_trend && <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded ml-1">SNIPER 🎯</span>}
+                                            </div>
+                                            <div className="text-sm text-slate-400 mt-1">{new Date(s.time).toLocaleString()}</div>
                                         </div>
+
                                         <div className="text-right">
                                             <div className="text-sm text-slate-400">Price</div>
                                             <div className="text-xl font-mono text-white">₹{s.price}</div>
+                                            <div className="mt-2 text-xs text-slate-400">Win Rate (30d)</div>
+                                            <div className={`font-bold ${s.win_rate > 60 ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                {s.win_rate}%
+                                            </div>
                                         </div>
+
                                         <div className="text-right">
                                             <div className="text-sm text-slate-400">CCI</div>
                                             <div className={`text-2xl font-mono font-bold ${s.type === 'BULLISH' ? 'text-green-400' : 'text-red-400'}`}>
