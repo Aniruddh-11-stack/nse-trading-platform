@@ -2,7 +2,7 @@
 
 A high-performance web application that scans NSE 200 stocks in real-time for CCI (Commodity Channel Index) crossovers. It identifies Bullish (>100) and Bearish (<-100) signals on a 15-minute timeframe and provides advanced institutional-grade filters.
 
-![Dashboard Screenshot](/Users/vinayrkulkarni/.gemini/antigravity/brain/acf4ee65-0889-4c7f-aa80-ad8de413e522/scanner_ui_verify_1768740076767.png)
+![Dashboard Screenshot](frontend/dashboard_preview.png)
 
 ## 🚀 Key Features
 
