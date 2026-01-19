@@ -18,7 +18,7 @@ def calculate_cci(df, period=20):
         df['SMA_TP'] = df['TP'].rolling(window=period).mean()
         
         def mean_deviation(x):
-            return (x - x.mean()).abs().mean()
+            return np.abs(x - x.mean()).mean()
             
         df['MD'] = df['TP'].rolling(window=period).apply(mean_deviation, raw=True)
         df['CCI'] = (df['TP'] - df['SMA_TP']) / (0.015 * df['MD'])

@@ -19,10 +19,10 @@ def fetch_nse_200_symbols():
         print(f"Error fetching NSE 200 symbols: {e}")
         return ["RELIANCE", "TCS"]
 
-def fetch_stock_data(symbol, interval='15m', days=5):
+def fetch_stock_data(symbol, interval='15m', days=5, suffix=".NS"):
     try:
         # Yahoo Finance Chart API
-        yf_symbol = f"{symbol}.NS"
+        yf_symbol = f"{symbol}{suffix}"
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_symbol}"
         params = {
             'interval': interval,
