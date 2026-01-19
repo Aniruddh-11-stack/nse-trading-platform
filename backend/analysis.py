@@ -131,6 +131,7 @@ def scan_stocks():
                                 
             # 4. Instant Truth Backtest
             win_rate, total_trades = calculate_backtest(df_cci, signal_type)
+            wins = int(round((win_rate * total_trades) / 100))
             
             # 5. Sector
             sector = get_sector(symbol)

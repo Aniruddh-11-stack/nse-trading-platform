@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import datetime
+import io
 
 def fetch_nse_200_symbols():
     try:
@@ -8,7 +9,9 @@ def fetch_nse_200_symbols():
         url = "https://nsearchives.nseindia.com/content/indices/ind_nifty200list.csv"
         headers = {'User-Agent': 'Mozilla/5.0'}
         try:
-            df = pd.read_csv(url)
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            df = pd.read_csv(io.StringIO(response.text))
             return df['Symbol'].tolist()
         except:
              return ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "LTI"]
@@ -27,7 +30,7 @@ def fetch_stock_data(symbol, interval='15m', days=5):
         }
         headers = {'User-Agent': 'Mozilla/5.0'}
         
-        response = requests.get(url, params=params, headers=headers)
+        response = requests.get(url, params=params, headers=headers, timeout=10)
         data = response.json()
         
         if 'chart' not in data or 'result' not in data['chart'] or not data['chart']['result']:
