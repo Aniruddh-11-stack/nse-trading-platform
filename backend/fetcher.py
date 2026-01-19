@@ -19,6 +19,10 @@ def fetch_nse_200_symbols():
         print(f"Error fetching NSE 200 symbols: {e}")
         return ["RELIANCE", "TCS"]
 
+def fetch_us_symbols():
+    # Major US Tech & Blue chips
+    return ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "AMD", "GOOGL", "META", "NFLX", "INTC", "BRK-B", "JPM", "V", "JNJ", "WMT", "PG"]
+
 def fetch_stock_data(symbol, interval='15m', days=5, suffix=".NS"):
     try:
         # Yahoo Finance Chart API

@@ -1,4 +1,4 @@
-from .fetcher import fetch_stock_data, fetch_nse_200_symbols
+from .fetcher import fetch_stock_data, fetch_nse_200_symbols, fetch_us_symbols
 from .sectors import get_sector, SECTOR_MAP
 import time
 import datetime
@@ -75,15 +75,21 @@ def get_sector_sentiment(target_sector, symbols):
     return "N/A"
 
 def scan_stocks():
-    symbols = fetch_nse_200_symbols()
+    nse_symbols = fetch_nse_200_symbols()
+    us_symbols = fetch_us_symbols()
+    
+    # Create scan targets with suffix
+    # NSE stocks get .NS, US stocks get empty suffix
+    scan_targets = [(s, ".NS") for s in nse_symbols] + [(s, "") for s in us_symbols]
+    
     bullish_stocks = []
     
-    print(f"Scanning {len(symbols)} stocks with Advanced Filters...")
+    print(f"Scanning {len(scan_targets)} stocks (NSE + US) with Advanced Filters...")
     
-    for symbol in symbols:
+    for symbol, suffix in scan_targets:
         try:
             # 1. Fetch 15m Data (Backtesting + Signal)
-            df = fetch_stock_data(symbol, "15m", days=10) # 10 days for backtest context
+            df = fetch_stock_data(symbol, "15m", days=10, suffix=suffix) # 10 days for backtest context
             if df.empty or len(df) < 50:
                 continue
                 
