@@ -20,31 +20,44 @@ app = FastAPI()
 latest_signals = []
 
 
-def is_market_hours():
-    """Check if current time is within NSE trading hours (9:15 AM - 3:30 PM IST, Mon-Fri)"""
+def is_market_open():
+    """Check if EITHER NSE or US market is open."""
+    # 1. Check NSE (IST)
     ist = pytz.timezone('Asia/Kolkata')
-    now = datetime.datetime.now(ist)
+    now_ist = datetime.datetime.now(ist)
+    is_nse_open = False
     
-    # Check if it's a weekday (Monday = 0, Sunday = 6)
-    if now.weekday() > 4:  # Saturday or Sunday
-        return False
+    if now_ist.weekday() <= 4: # Mon-Fri
+        market_open = now_ist.replace(hour=9, minute=15, second=0, microsecond=0)
+        market_close = now_ist.replace(hour=15, minute=30, second=0, microsecond=0)
+        is_nse_open = market_open <= now_ist <= market_close
+        
+    # 2. Check US (EST/EDT)
+    est = pytz.timezone('US/Eastern')
+    now_est = datetime.datetime.now(est)
+    is_us_open = False
     
-    # Market hours: 9:15 AM to 3:30 PM IST
-    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
-    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
-    
-    return market_open <= now <= market_close
+    if now_est.weekday() <= 4: # Mon-Fri
+        # US Market: 9:30 AM - 4:00 PM ET
+        market_open_us = now_est.replace(hour=9, minute=30, second=0, microsecond=0)
+        market_close_us = now_est.replace(hour=16, minute=0, second=0, microsecond=0)
+        is_us_open = market_open_us <= now_est <= market_close_us
+
+    return is_nse_open, is_us_open
 
 
 def job():
     print("Starting scheduled scan...")
     
-    # Check if market is open
-    if not is_market_hours():
-        print("Market is closed. Skipping scan.")
+    nse_open, us_open = is_market_open()
+    
+    # Check if ANY market is open
+    if not nse_open and not us_open:
+        print("Both Markets are closed. Skipping scan.")
         return
     
-    print("Market is open. Proceeding with scan...")
+    print(f"Markets Status - NSE: {'OPEN' if nse_open else 'CLOSED'} | US: {'OPEN' if us_open else 'CLOSED'}")
+    print("Proceeding with scan...")
     global latest_signals
     
     # Clear signals at the start of the day (approximate check)
@@ -56,11 +69,14 @@ def job():
     
     if latest_signals:
         first_signal_time = datetime.datetime.fromisoformat(latest_signals[0]['time'])
-        if first_signal_time.date() < now.date():
-            print("Clearing signals from previous day...")
-            latest_signals = []
+        # Simple reset logic: if signal is old (> 12 hours), clear it
+        # This handles both markets somewhat loosely but effectively for a persistent server
+        if (now - first_signal_time).total_seconds() > 43200: 
+             print("Clearing old signals...")
+             latest_signals = []
 
-    new_signals = scan_stocks()
+    # Pass the market status to scan_stocks
+    new_signals = scan_stocks(check_nse=nse_open, check_us=us_open)
     
     if new_signals:
         # Deduplicate and Append
@@ -86,7 +102,8 @@ def job():
             body += f"CCI: {s['cci']:.2f} | Win Rate: {s.get('win_rate', 0)}%{whale_tag}{sniper_tag}\n\n"
             
         # Strict check before sending email
-        if is_market_hours():
+        nse_open_now, us_open_now = is_market_open()
+        if nse_open_now or us_open_now:
             recipient = os.getenv("ALERT_EMAIL")
             if recipient:
                 send_email(subject, body, [recipient])

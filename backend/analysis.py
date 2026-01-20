@@ -74,13 +74,17 @@ def get_sector_sentiment(target_sector, symbols):
     # MVP: Just return N/A or implement later properly.
     return "N/A"
 
-def scan_stocks():
-    nse_symbols = fetch_nse_200_symbols()
-    us_symbols = fetch_us_symbols()
+def scan_stocks(check_nse=True, check_us=True):
+    nse_symbols = fetch_nse_200_symbols() if check_nse else []
+    us_symbols = fetch_us_symbols() if check_us else []
     
     # Create scan targets with suffix
     # NSE stocks get .NS, US stocks get empty suffix
-    scan_targets = [(s, ".NS") for s in nse_symbols] + [(s, "") for s in us_symbols]
+    scan_targets = []
+    if check_nse:
+        scan_targets += [(s, ".NS") for s in nse_symbols]
+    if check_us:
+        scan_targets += [(s, "") for s in us_symbols]
     
     bullish_stocks = []
     
