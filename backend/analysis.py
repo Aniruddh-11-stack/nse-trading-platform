@@ -165,8 +165,8 @@ def scan_stocks(check_nse=True, check_us=True):
     bullish_stocks = []
     
     # Use ThreadPoolExecutor for parallel scanning
-    # 25 Threads is a safe balance for Yahoo Finance rate limits vs Speed
-    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
+    # Reduced to 10 threads as per user suggestion/Yahoo limits to avoid 429 Errors
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(process_stock, scan_targets))
     
     # Filter out None values
