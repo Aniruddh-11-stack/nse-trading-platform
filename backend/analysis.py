@@ -4,6 +4,7 @@ import time
 import datetime
 import pandas as pd
 import numpy as np
+import concurrent.futures
 
 def calculate_cci(df, period=20):
     if df.empty:
@@ -21,24 +22,23 @@ def calculate_cci(df, period=20):
             return np.abs(x - x.mean()).mean()
             
         df['MD'] = df['TP'].rolling(window=period).apply(mean_deviation, raw=True)
-        df['CCI'] = (df['TP'] - df['SMA_TP']) / (0.015 * df['MD'])
+        # Avoid division by zero
+        df['CCI'] = (df['TP'] - df['SMA_TP']) / (0.015 * df['MD'].replace(0, 0.001))
         return df
     except Exception as e:
         print(f"Error calculating CCI: {e}")
         return None
 
 def calculate_backtest(df, signal_type):
-    # Instant Truth: Check last 30 days (assuming df has enough data)
-    # Win = Price moved 1% in favor within next 5 bars without hitting 1% stop loss
+    # Instant Truth: Check last 30 days
     wins = 0
     total = 0
     
     # We need to iterate through past data.
     # Simple approximation: Check last 20 crossover events
-    # This is compute intenstive, so we limit lookback
     
-    events = []
     # Find all past crossovers
+    # Optimization: Vectorize or strict loop limits
     for i in range(21, len(df) - 5): # Stop 5 bars before end to check outcome
         p_cci = df['CCI'].iloc[i-1]
         c_cci = df['CCI'].iloc[i]
@@ -67,104 +67,108 @@ def calculate_backtest(df, signal_type):
     return win_rate, total
 
 def get_sector_sentiment(target_sector, symbols):
-    # Crude way: Fetch ALL sector stocks and check % change. 
-    # Too slow to fetch all for every scan.
-    # Optimization: Main scan loop populates a global "Last known % change" for each stock.
-    # For now, return "Unknown" to keep it fast, or implement independent sector scanner.
-    # MVP: Just return N/A or implement later properly.
     return "N/A"
+
+def process_stock(stock_info):
+    """Helper - runs in thread."""
+    symbol, suffix = stock_info
+    try:
+        # 1. Fetch 5m Data (CHANGED from 15m)
+        df = fetch_stock_data(symbol, "5m", days=5, suffix=suffix) 
+        if df.empty or len(df) < 50:
+            return None
+            
+        df_cci = calculate_cci(df)
+        if df_cci is None:
+            return None
+        
+        # Check Signal
+        current_cci = df_cci['CCI'].iloc[-1]
+        prev_cci = df_cci['CCI'].iloc[-2]
+        signal_type = None
+        
+        if prev_cci <= 100 and current_cci > 100:
+            signal_type = "BULLISH"
+        elif prev_cci >= -100 and current_cci < -100:
+            signal_type = "BEARISH"
+            
+        if not signal_type:
+            return None
+            
+        # --- ADVANCED FEATURES ---
+        
+        # 2. Whale Volume Filter
+        current_vol = df_cci['volume'].iloc[-1]
+        avg_vol = df_cci['volume'].rolling(20).mean().iloc[-1]
+        is_whale = current_vol > (2.0 * avg_vol)
+        
+        # 3. Sniper Filter (Daily Trend)
+        try:
+             # Optimization: Fetch only if signal exists
+             df_daily = fetch_stock_data(symbol, "1d", days=300, suffix=suffix)
+             trend = "NEUTRAL"
+             if not df_daily.empty and len(df_daily) > 200:
+                  ema_200 = df_daily['close'].ewm(span=200).mean().iloc[-1]
+                  curr_daily_price = df_daily['close'].iloc[-1]
+                  if curr_daily_price > ema_200:
+                      trend = "UP"
+                  else:
+                      trend = "DOWN"
+        except:
+            trend = "NEUTRAL"
+        
+        is_sniper_aligned = (signal_type == "BULLISH" and trend == "UP") or \
+                            (signal_type == "BEARISH" and trend == "DOWN")
+                            
+        # 4. Instant Truth Backtest
+        win_rate, total_trades = calculate_backtest(df_cci, signal_type)
+        wins = int(round((win_rate * total_trades) / 100))
+        
+        # 5. Sector
+        sector = get_sector(symbol)
+        
+        # print(f"Signal: {symbol}") 
+        
+        return {
+            "symbol": symbol,
+            "type": signal_type,
+            "cci": float(current_cci),
+            "price": float(df_cci['close'].iloc[-1]),
+            "time": datetime.datetime.now().isoformat(),
+            "whale_vol": bool(is_whale),
+            "sniper_trend": bool(is_sniper_aligned),
+            "win_rate": round(win_rate, 1),
+            "wins": wins,
+            "total_trades": total_trades,
+            "sector": sector
+        }
+    except Exception as e:
+        # print(f"Error {symbol}: {e}")
+        return None
 
 def scan_stocks(check_nse=True, check_us=True):
     nse_symbols = fetch_nse_200_symbols() if check_nse else []
     us_symbols = fetch_us_symbols() if check_us else []
     
     # Create scan targets with suffix
-    # NSE stocks get .NS, US stocks get empty suffix
     scan_targets = []
     if check_nse:
         scan_targets += [(s, ".NS") for s in nse_symbols]
     if check_us:
+        # Some manual cleanup for US symbols might be needed?
+        # fetcher.py handles cleaning dots to hyphens.
         scan_targets += [(s, "") for s in us_symbols]
+    
+    print(f"Scanning {len(scan_targets)} stocks (NSE + US) in Parallel (5m timeframe)...")
     
     bullish_stocks = []
     
-    print(f"Scanning {len(scan_targets)} stocks (NSE + US) with Advanced Filters...")
+    # Use ThreadPoolExecutor for parallel scanning
+    # 25 Threads is a safe balance for Yahoo Finance rate limits vs Speed
+    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
+        results = list(executor.map(process_stock, scan_targets))
     
-    for symbol, suffix in scan_targets:
-        try:
-            # 1. Fetch 15m Data (Backtesting + Signal)
-            df = fetch_stock_data(symbol, "15m", days=10, suffix=suffix) # 10 days for backtest context
-            if df.empty or len(df) < 50:
-                continue
-                
-            df_cci = calculate_cci(df)
-            if df_cci is None:
-                continue
-            
-            # Check Signal
-            current_cci = df_cci['CCI'].iloc[-1]
-            prev_cci = df_cci['CCI'].iloc[-2]
-            signal_type = None
-            
-            if prev_cci <= 100 and current_cci > 100:
-                signal_type = "BULLISH"
-            elif prev_cci >= -100 and current_cci < -100:
-                signal_type = "BEARISH"
-                
-            if not signal_type:
-                continue
-                
-            # --- ADVANCED FEATURES ---
-            
-            # 2. Whale Volume Filter
-            # Vol > 200% of 20 SMA Vol
-            current_vol = df_cci['volume'].iloc[-1]
-            avg_vol = df_cci['volume'].rolling(20).mean().iloc[-1]
-            is_whale = current_vol > (2.0 * avg_vol)
-            
-            # 3. Sniper Filter (Daily Trend)
-            # Need daily data.
-            # Optimization: Fetch only if 15m signal exists to save API calls
-            df_daily = fetch_stock_data(symbol, "1d", days=300)
-            trend = "NEUTRAL"
-            if not df_daily.empty and len(df_daily) > 200:
-                 ema_200 = df_daily['close'].ewm(span=200).mean().iloc[-1]
-                 curr_daily_price = df_daily['close'].iloc[-1]
-                 if curr_daily_price > ema_200:
-                     trend = "UP"
-                 else:
-                     trend = "DOWN"
-            
-            # Filter check: Bullish signal needs Up trend, Bearish needs Down
-            is_sniper_aligned = (signal_type == "BULLISH" and trend == "UP") or \
-                                (signal_type == "BEARISH" and trend == "DOWN")
-                                
-            # 4. Instant Truth Backtest
-            win_rate, total_trades = calculate_backtest(df_cci, signal_type)
-            wins = int(round((win_rate * total_trades) / 100))
-            
-            # 5. Sector
-            sector = get_sector(symbol)
-            
-            print(f"Signal: {symbol} ({signal_type}) | Whale: {is_whale} | Sniper: {is_sniper_aligned} | WinRate: {win_rate:.0f}%")
-            
-            bullish_stocks.append({
-                "symbol": symbol,
-                "type": signal_type,
-                "cci": float(current_cci),
-                "price": float(df_cci['close'].iloc[-1]),
-                "time": datetime.datetime.now().isoformat(),
-                "whale_vol": bool(is_whale),
-                "sniper_trend": bool(is_sniper_aligned),
-                "win_rate": round(win_rate, 1),
-                "wins": wins,
-                "total_trades": total_trades,
-                "sector": sector
-            })
-            
-            time.sleep(0.1) 
-        except Exception as e:
-            print(f"Error scanning {symbol}: {e}")
-            continue
+    # Filter out None values
+    bullish_stocks = [r for r in results if r is not None]
             
     return bullish_stocks
