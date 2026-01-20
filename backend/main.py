@@ -70,9 +70,22 @@ def run_scan():
     new_signals, stats = scan_stocks(check_nse=nse_open, check_us=us_open)
     
     if new_signals:
-        # Prepend new signals
-        latest_signals = new_signals + latest_signals
-        print(f"Found {len(new_signals)} new signals!")
+        # Deduplication Logic:
+        # Combine new and old, preferring new.
+        # We process new_signals first, then latest_signals.
+        # If a symbol is seen, skip subsequent occurrences.
+        
+        combined = new_signals + latest_signals
+        unique_map = {}
+        deduplicated_list = []
+        
+        for s in combined:
+            if s['symbol'] not in unique_map:
+                unique_map[s['symbol']] = True
+                deduplicated_list.append(s)
+        
+        latest_signals = deduplicated_list
+        print(f"Found {len(new_signals)} signals. Total unique: {len(latest_signals)}")
     else:
         print("No new signals found.")
         
