@@ -7,4 +7,5 @@ schedule
 pydantic
 python-dotenv
 pytz
+lxml
 
