@@ -20,8 +20,19 @@ def fetch_nse_200_symbols():
         return ["RELIANCE", "TCS"]
 
 def fetch_us_symbols():
-    # Major US Tech & Blue chips
-    return ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "AMD", "GOOGL", "META", "NFLX", "INTC", "BRK-B", "JPM", "V", "JNJ", "WMT", "PG"]
+    try:
+        # Fetch S&P 500 list from Wikipedia
+        url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        html = requests.get(url).content
+        df = pd.read_html(html)[0]
+        # Tickers on Wiki sometimes have dots (BF.B), Yahoo uses hyphens (BF-B)
+        tickers = df['Symbol'].str.replace('.', '-', regex=False).tolist()
+        return tickers
+    except Exception as e:
+        print(f"Error fetching S&P 500 symbols: {e}")
+        # Fallback to a larger manual list of top US stocks
+        return ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "BRK-B", "LLY", "AVGO", 
+                "JPM", "V", "XOM", "UNH", "MA", "PG", "JNJ", "HD", "MRK", "COST", "ABBV", "AMD"]
 
 def fetch_stock_data(symbol, interval='15m', days=5, suffix=".NS"):
     try:
