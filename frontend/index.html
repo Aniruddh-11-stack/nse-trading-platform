@@ -50,9 +50,30 @@
             };
 
             useEffect(() => {
+                // Initial Fetch
                 fetchSignals();
-                const interval = setInterval(fetchSignals, 60000); // Poll every minute
-                return () => clearInterval(interval);
+
+                // Trigger a fresh scan immediately when page loads
+                fetch('/api/scan')
+                    .then(res => res.json())
+                    .then(data => {
+                        console.log("Scan result:", data);
+                        fetchSignals(); // Refresh list after scan
+                    })
+                    .catch(err => console.error("Scan trigger failed", err));
+
+                // Poll for signals every 30 seconds
+                const interval = setInterval(fetchSignals, 30000);
+
+                // Trigger a fresh scan every 5 minutes (while tab is open)
+                const scanInterval = setInterval(() => {
+                    fetch('/api/scan').then(() => fetchSignals());
+                }, 300000); // 5 mins
+
+                return () => {
+                    clearInterval(interval);
+                    clearInterval(scanInterval);
+                };
             }, []);
 
             return (

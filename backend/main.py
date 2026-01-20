@@ -1,11 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-import schedule
-import time
-import threading
 from .analysis import scan_stocks
-from .mailer import send_email
 import os
 from typing import List
 from dotenv import load_dotenv
@@ -46,95 +42,47 @@ def is_market_open():
     return is_nse_open, is_us_open
 
 
-def job():
-    print("Starting scheduled scan...")
+def run_scan():
+    """Run the scan logic - called on demand by frontend"""
+    print("Starting on-demand scan...")
     
     nse_open, us_open = is_market_open()
     
     # Check if ANY market is open
     if not nse_open and not us_open:
         print("Both Markets are closed. Skipping scan.")
-        return
+        return {"status": "Markets Closed"}
     
     print(f"Markets Status - NSE: {'OPEN' if nse_open else 'CLOSED'} | US: {'OPEN' if us_open else 'CLOSED'}")
-    print("Proceeding with scan...")
     global latest_signals
     
-    # Clear signals at the start of the day (approximate check)
-    # If the list has signals from a previous day, clear them
-    # A simple way is to check the date of the first signal
+    # Clear signals at the start of the day logic
     ist = pytz.timezone('Asia/Kolkata')
     now = datetime.datetime.now(ist)
-    today_str = now.strftime("%Y-%m-%d")
     
     if latest_signals:
         first_signal_time = datetime.datetime.fromisoformat(latest_signals[0]['time'])
-        # Simple reset logic: if signal is old (> 12 hours), clear it
-        # This handles both markets somewhat loosely but effectively for a persistent server
         if (now - first_signal_time).total_seconds() > 43200: 
              print("Clearing old signals...")
              latest_signals = []
 
-    # Pass the market status to scan_stocks
+    # Filter markets based on opening hours
     new_signals = scan_stocks(check_nse=nse_open, check_us=us_open)
     
     if new_signals:
-        # Deduplicate and Append
-        # we key by symbol and type and approx time? 
-        # Actually, scan_stocks checks for immediate crossover. 
-        # So multiple 5-min scans might not pick up the SAME crossover unless it flickers.
-        # But we simply append `new_signals` to `latest_signals`
-        
-        # To avoid duplicates in the same 15m candle might be tricky without unique ID.
-        # But let's assume `scan_stocks` logic (prev <= 100, curr > 100) is robust enough 
-        # that it only fires ONCE per crossing event.
-        
-        # We just insert them at the beginning for display
+        # Prepend new signals
         latest_signals = new_signals + latest_signals
-        
-        # Prepare email
-        subject = f"NSE Update: {len(new_signals)} Stocks Crossed CCI 100"
-        body = "The following stocks have crossed 100 CCI on the 15m timeframe:\n\n"
-        for s in new_signals:
-            whale_tag = " [WHALE 🐳]" if s.get('whale_vol') else ""
-            sniper_tag = " [SNIPER 🎯]" if s.get('sniper_trend') else ""
-            body += f"{s['symbol']} ({s.get('sector', 'N/A')}): {s['type']} @ {s['price']}\n"
-            body += f"CCI: {s['cci']:.2f} | Win Rate: {s.get('win_rate', 0)}%{whale_tag}{sniper_tag}\n\n"
-            
-        # Strict check before sending email
-        nse_open_now, us_open_now = is_market_open()
-        if nse_open_now or us_open_now:
-            recipient = os.getenv("ALERT_EMAIL")
-            if recipient:
-                send_email(subject, body, [recipient])
-            else:
-                print("No ALERT_EMAIL set.")
-        else:
-            print("Market closed during scan. Skipping email alert.")
+        print(f"Found {len(new_signals)} new signals!")
     else:
-        print("No new signals found this run.")
+        print("No new signals found.")
+        
+    return {"status": "Scan Complete", "new_signals": len(new_signals)}
 
-@app.on_event("startup")
-def startup_event():
-    # Only run the background scheduler if NOT on Vercel (local mode)
-    if not os.getenv("VERCEL"):
-        def run_scheduler():
-            # Run once immediately
-            job()
-            # Then schedule
-            schedule.every(5).minutes.do(job)
-            while True:
-                schedule.run_pending()
-                time.sleep(1)
-                
-        t = threading.Thread(target=run_scheduler, daemon=True)
-        t.start()
 
-@app.get("/api/cron")
+@app.get("/api/scan")
 def trigger_scan():
-    """Endpoint for Vercel Cron to trigger the scan"""
-    job()
-    return {"status": "Scan triggered"}
+    """Endpoint triggered by Frontend every minute to keep app alive and scanning"""
+    return run_scan()
 
 @app.get("/api/signals")
 def get_signals():
@@ -142,13 +90,13 @@ def get_signals():
 
 @app.get("/api/status")
 def get_status():
-    return {"status": "running", "scheduler": "active"}
+    return {"status": "running", "mode": "on-demand"}
 
 from pydantic import BaseModel
 
 class Signal(BaseModel):
     symbol: str
-    type: str # BULLISH or BEARISH
+    type: str 
     cci: float
     price: float
     time: str
@@ -162,7 +110,6 @@ class Signal(BaseModel):
 @app.post("/api/test/inject")
 def inject_signal(signal: Signal):
     global latest_signals
-    # Prepend to list
     latest_signals.insert(0, signal.dict())
     return {"message": "Signal injected", "current_count": len(latest_signals)}
 
