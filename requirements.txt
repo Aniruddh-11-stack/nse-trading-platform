@@ -6,4 +6,5 @@ pandas
 schedule
 pydantic
 python-dotenv
+pytz
 
