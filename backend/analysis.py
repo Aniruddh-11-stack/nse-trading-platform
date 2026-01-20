@@ -84,12 +84,13 @@ def process_stock(stock_info):
         
         # Check Signal
         current_cci = df_cci['CCI'].iloc[-1]
-        prev_cci = df_cci['CCI'].iloc[-2]
+        # prev_cci = df_cci['CCI'].iloc[-2] # No longer needed for strict crossover
         signal_type = None
         
-        if prev_cci <= 100 and current_cci > 100:
-            signal_type = "BULLISH"
-        elif prev_cci >= -100 and current_cci < -100:
+        # User Request: Show ALL stocks currently above/below threshold, not just new crossovers.
+        if current_cci > 100:
+            signal_type = "BULLISH" # Keeping name compatible with frontend
+        elif current_cci < -100:
             signal_type = "BEARISH"
             
         if not signal_type:
