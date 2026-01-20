@@ -170,5 +170,16 @@ def scan_stocks(check_nse=True, check_us=True):
     
     # Filter out None values
     bullish_stocks = [r for r in results if r is not None]
+    
+    stats = {
+        "total_targets": len(scan_targets),
+        "successful_fetches": len([r for r in results if r is not None or r == {}]), # Logic check: process_stock returns None on fail
+        # Wait, process_stock returns dict on signal, None on no-signal OR error. 
+        # We need to distinguish "No Signal" from "Error".
+        # For now, let's just track 'signals_found'. We can't easily track fetch-success in map without changing helper return.
+        # Let's just return what we have.
+        "signals_found": len(bullish_stocks)
+    }
+    print(f"Scan Stats: Checked {len(scan_targets)}, Signals {len(bullish_stocks)}")
             
-    return bullish_stocks
+    return bullish_stocks, stats

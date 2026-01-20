@@ -67,7 +67,7 @@ def run_scan():
              latest_signals = []
 
     # Filter markets based on opening hours
-    new_signals = scan_stocks(check_nse=nse_open, check_us=us_open)
+    new_signals, stats = scan_stocks(check_nse=nse_open, check_us=us_open)
     
     if new_signals:
         # Prepend new signals
@@ -76,7 +76,7 @@ def run_scan():
     else:
         print("No new signals found.")
         
-    return {"status": "Scan Complete", "new_signals": len(new_signals)}
+    return {"status": "Scan Complete", "stats": stats, "new_signals": len(new_signals), "market_status": {"nse": nse_open, "us": us_open}}
 
 
 @app.get("/api/scan")
