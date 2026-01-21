@@ -1,11 +1,11 @@
 fastapi
 uvicorn
-nsepython
 requests
 pandas
-schedule
 pydantic
 python-dotenv
 pytz
-lxml
+beautifulsoup4
+html5lib
+numpy
 
