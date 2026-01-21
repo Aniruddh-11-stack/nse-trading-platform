@@ -7,6 +7,7 @@ from typing import List
 from dotenv import load_dotenv
 import datetime
 import pytz
+from .ai_analyst import generate_stock_analysis
 
 load_dotenv()
 
@@ -61,10 +62,16 @@ def run_scan():
     now = datetime.datetime.now(ist)
     
     if latest_signals:
-        first_signal_time = datetime.datetime.fromisoformat(latest_signals[0]['time'])
-        if (now - first_signal_time).total_seconds() > 43200: 
-             print("Clearing old signals...")
-             latest_signals = []
+        try:
+            first_signal_time = datetime.datetime.fromisoformat(latest_signals[0]['time'])
+            if first_signal_time.tzinfo is None:
+                first_signal_time = ist.localize(first_signal_time)
+            
+            if (now - first_signal_time).total_seconds() > 43200: 
+                 print("Clearing old signals...")
+                 latest_signals = []
+        except Exception as e:
+            print(f"Error checking signal time: {e}")
 
     # Filter markets based on opening hours
     new_signals, stats = scan_stocks(check_nse=nse_open, check_us=us_open)
@@ -125,6 +132,19 @@ def inject_signal(signal: Signal):
     global latest_signals
     latest_signals.insert(0, signal.dict())
     return {"message": "Signal injected", "current_count": len(latest_signals)}
+
+class AnalysisRequest(BaseModel):
+    type: str = "stock" # stock, definition, market, sector
+    payload: dict
+
+@app.post("/api/analyze")
+def analyze_request(request: AnalysisRequest):
+    """
+    On-demand AI Analysis for Stocks, Definitions, Markets, or Sectors.
+    """
+    from .ai_analyst import analyze_data
+    analysis_text = analyze_data(request.type, request.payload)
+    return {"analysis": analysis_text}
 
 @app.get("/")
 def read_root():

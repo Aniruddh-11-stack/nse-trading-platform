@@ -201,20 +201,40 @@ def scan_stocks(check_nse=True, check_us=True):
          market_name = "GLOBAL MARKETS"
          
     # 2. Sector Stats
-    sector_counts = {}
+    sector_stats = {}
     for r in all_results:
         # Count only if it has a SIGNAL (active setup)
         if r['type']: 
             sec = r['sector']
             # FILTER: Exclude "Others" and "N/A"
             if sec and sec not in ["Others", "N/A"]:
-                if sec not in sector_counts:
-                    sector_counts[sec] = 0
-                sector_counts[sec] += 1
-            
+                if sec not in sector_stats:
+                    sector_stats[sec] = {"count": 0, "bullish": 0, "bearish": 0, "signals": []}
+                
+                sector_stats[sec]["count"] += 1
+                if r['type'] == 'BULLISH':
+                    sector_stats[sec]["bullish"] += 1
+                else:
+                    sector_stats[sec]["bearish"] += 1
+                
+                # Add symbol with direction for frontend tooltip/display
+                direction_icon = "🟢" if r['type'] == 'BULLISH' else "🔴"
+                sector_stats[sec]["signals"].append(f"{r['symbol']} {direction_icon}")
+
     # Sort sectors by signal count
-    sorted_sectors = sorted(sector_counts.items(), key=lambda item: item[1], reverse=True)[:3]
-    top_sectors = [{"name": s[0], "count": s[1]} for s in sorted_sectors]
+    sorted_sectors = sorted(sector_stats.items(), key=lambda item: item[1]['count'], reverse=True)[:3]
+    
+    # Structure for Frontend
+    top_sectors = []
+    for name, stats in sorted_sectors:
+        top_sectors.append({
+            "name": name,
+            "count": stats["count"],
+            "bullish": stats["bullish"],
+            "bearish": stats["bearish"],
+            "signals": stats["signals"][:5] # Limit to top 5 symbols to avoid clutter
+        })
+        
     top_sector_names = [s[0] for s in sorted_sectors]
 
     # Filter signals for the main list
