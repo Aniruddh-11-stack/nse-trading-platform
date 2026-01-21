@@ -10,4 +10,4 @@ html5lib
 numpy
 
 
-google-generativeai
+openai
