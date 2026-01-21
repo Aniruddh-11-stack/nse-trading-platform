@@ -184,15 +184,33 @@ def scan_stocks(check_nse=True, check_us=True):
     green_zone = len([r for r in all_results if r['is_market_bullish']])
     sentiment_percent = (green_zone / total_analyzed * 100) if total_analyzed > 0 else 0
     
+    # Determine Market Name
+    market_name = "NIFTY 200" # Default
+    if check_us and not check_nse:
+        market_name = "S&P 500"
+    elif check_nse and not check_us:
+        market_name = "NIFTY 500" # As requested
+    elif check_us and check_nse:
+         # Mixed mode - maybe see who has more signals or just say Global?
+         # User said: "when USA Market is on we need S&P and when indian market we need Nifty"
+         # We can check which list contributed more to 'all_results' or just check flags
+         # Simple heuristic: If US is checked (and presumably open/active), prioritize it if NSE is closed?
+         # But scan_stocks is called with flags. 
+         # Let's assume the flags passed to scan_stocks reflect the "active" intent.
+         # If both are True (rare in production maybe?), we can check timestamps or just list both.
+         market_name = "GLOBAL MARKETS"
+         
     # 2. Sector Stats
     sector_counts = {}
     for r in all_results:
         # Count only if it has a SIGNAL (active setup)
         if r['type']: 
             sec = r['sector']
-            if sec not in sector_counts:
-                sector_counts[sec] = 0
-            sector_counts[sec] += 1
+            # FILTER: Exclude "Others" and "N/A"
+            if sec and sec not in ["Others", "N/A"]:
+                if sec not in sector_counts:
+                    sector_counts[sec] = 0
+                sector_counts[sec] += 1
             
     # Sort sectors by signal count
     sorted_sectors = sorted(sector_counts.items(), key=lambda item: item[1], reverse=True)[:3]
@@ -231,7 +249,8 @@ def scan_stocks(check_nse=True, check_us=True):
         "successful_fetches": total_analyzed,
         "signals_found": len(bullish_stocks),
         "sentiment_percent": round(sentiment_percent, 1),
-        "top_sectors": top_sectors
+        "top_sectors": top_sectors,
+        "market_name": market_name
     }
     print(f"Scan Stats: Checked {len(scan_targets)}, Signals {len(bullish_stocks)}")
             
