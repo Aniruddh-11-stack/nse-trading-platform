@@ -1,4 +1,8 @@
+import os
+import sys
+
+# Add the project root to the system path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 from backend.main import app
 
-# This is the entry point for Vercel Serverless Functions
-# It just re-exports the FastAPI app from backend/main.py
