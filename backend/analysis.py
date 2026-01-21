@@ -92,9 +92,8 @@ def process_stock(stock_info):
             signal_type = "BULLISH" # Keeping name compatible with frontend
         elif current_cci < -100:
             signal_type = "BEARISH"
-            
-        if not signal_type:
-            return None
+        else:
+            signal_type = None
             
         # --- ADVANCED FEATURES ---
         
@@ -105,34 +104,41 @@ def process_stock(stock_info):
         
         # 3. Sniper Filter (Daily Trend)
         try:
-             # Optimization: Fetch only if signal exists
-             df_daily = fetch_stock_data(symbol, "1d", days=300, suffix=suffix)
+             # Optimization: Fetch only if signal exists or for stats? 
+             # For speed, let's only do deep trend check if we have a signal OR if we really need it.
+             # Actually, for market breadth we just need CCI.
              trend = "NEUTRAL"
-             if not df_daily.empty and len(df_daily) > 200:
-                  ema_200 = df_daily['close'].ewm(span=200).mean().iloc[-1]
-                  curr_daily_price = df_daily['close'].iloc[-1]
-                  if curr_daily_price > ema_200:
-                      trend = "UP"
-                  else:
-                      trend = "DOWN"
+             if signal_type: # Only fetch daily for signals to save time/quota
+                 df_daily = fetch_stock_data(symbol, "1d", days=300, suffix=suffix)
+                 if not df_daily.empty and len(df_daily) > 200:
+                      ema_200 = df_daily['close'].ewm(span=200).mean().iloc[-1]
+                      curr_daily_price = df_daily['close'].iloc[-1]
+                      if curr_daily_price > ema_200:
+                          trend = "UP"
+                      else:
+                          trend = "DOWN"
         except:
             trend = "NEUTRAL"
         
-        is_sniper_aligned = (signal_type == "BULLISH" and trend == "UP") or \
-                            (signal_type == "BEARISH" and trend == "DOWN")
+        is_sniper_aligned = False
+        if signal_type:
+            is_sniper_aligned = (signal_type == "BULLISH" and trend == "UP") or \
+                                (signal_type == "BEARISH" and trend == "DOWN")
                             
         # 4. Instant Truth Backtest
-        win_rate, total_trades = calculate_backtest(df_cci, signal_type)
-        wins = int(round((win_rate * total_trades) / 100))
+        win_rate = 0.0
+        wins = 0
+        total_trades = 0
+        if signal_type:
+             win_rate, total_trades = calculate_backtest(df_cci, signal_type)
+             wins = int(round((win_rate * total_trades) / 100))
         
         # 5. Sector
         sector = get_sector(symbol)
         
-        # print(f"Signal: {symbol}") 
-        
         return {
             "symbol": symbol,
-            "type": signal_type,
+            "type": signal_type, # Can be None
             "cci": float(current_cci),
             "price": float(df_cci['close'].iloc[-1]),
             "time": datetime.datetime.now().isoformat(),
@@ -141,7 +147,8 @@ def process_stock(stock_info):
             "win_rate": round(win_rate, 1),
             "wins": wins,
             "total_trades": total_trades,
-            "sector": sector
+            "sector": sector,
+            "is_market_bullish": float(current_cci) > 0 # Simple stat for breadth
         }
     except Exception as e:
         # print(f"Error {symbol}: {e}")
@@ -170,16 +177,36 @@ def scan_stocks(check_nse=True, check_us=True):
         results = list(executor.map(process_stock, scan_targets))
     
     # Filter out None values
-    bullish_stocks = [r for r in results if r is not None]
+    all_results = [r for r in results if r is not None]
+    
+    # 1. Calculate Market Breadth
+    total_analyzed = len(all_results)
+    green_zone = len([r for r in all_results if r['is_market_bullish']])
+    sentiment_percent = (green_zone / total_analyzed * 100) if total_analyzed > 0 else 0
+    
+    # 2. Sector Stats
+    sector_counts = {}
+    for r in all_results:
+        # Count only if it has a SIGNAL (active setup)
+        if r['type']: 
+            sec = r['sector']
+            if sec not in sector_counts:
+                sector_counts[sec] = 0
+            sector_counts[sec] += 1
+            
+    # Sort sectors by signal count
+    sorted_sectors = sorted(sector_counts.items(), key=lambda item: item[1], reverse=True)[:3]
+    top_sectors = [{"name": s[0], "count": s[1]} for s in sorted_sectors]
+
+    # Filter signals for the main list
+    bullish_stocks = [r for r in all_results if r['type'] is not None]
     
     stats = {
         "total_targets": len(scan_targets),
-        "successful_fetches": len([r for r in results if r is not None or r == {}]), # Logic check: process_stock returns None on fail
-        # Wait, process_stock returns dict on signal, None on no-signal OR error. 
-        # We need to distinguish "No Signal" from "Error".
-        # For now, let's just track 'signals_found'. We can't easily track fetch-success in map without changing helper return.
-        # Let's just return what we have.
-        "signals_found": len(bullish_stocks)
+        "successful_fetches": total_analyzed,
+        "signals_found": len(bullish_stocks),
+        "sentiment_percent": round(sentiment_percent, 1),
+        "top_sectors": top_sectors
     }
     print(f"Scan Stats: Checked {len(scan_targets)}, Signals {len(bullish_stocks)}")
             
