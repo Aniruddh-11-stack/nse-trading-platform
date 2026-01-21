@@ -197,9 +197,34 @@ def scan_stocks(check_nse=True, check_us=True):
     # Sort sectors by signal count
     sorted_sectors = sorted(sector_counts.items(), key=lambda item: item[1], reverse=True)[:3]
     top_sectors = [{"name": s[0], "count": s[1]} for s in sorted_sectors]
+    top_sector_names = [s[0] for s in sorted_sectors]
 
     # Filter signals for the main list
-    bullish_stocks = [r for r in all_results if r['type'] is not None]
+    bullish_stocks = []
+    for r in all_results:
+        if r['type'] is not None:
+             # Calculate Confidence Score (0-100)
+             score = 0
+             # 1. Trend (Sniper) - 20 pts
+             if r['sniper_trend']:
+                 score += 20
+             # 2. Volume (Whale) - 20 pts
+             if r['whale_vol']:
+                 score += 20
+             # 3. History (Win Rate) - 20 pts
+             if r['win_rate'] > 60:
+                 score += 20
+             # 4. Sector Resonance - 20 pts (if in top 3)
+             if r['sector'] in top_sector_names:
+                 score += 20
+             # 5. Market Alignment - 20 pts
+             # Bullish Signal + Market > 50% Bullish OR Bearish Signal + Market < 50% Bullish
+             if (r['type'] == 'BULLISH' and sentiment_percent > 50) or \
+                (r['type'] == 'BEARISH' and sentiment_percent < 50):
+                 score += 20
+                 
+             r['confidence'] = score
+             bullish_stocks.append(r)
     
     stats = {
         "total_targets": len(scan_targets),
