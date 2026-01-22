@@ -4,20 +4,38 @@ from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv())
 
-# Configure OpenAI
-api_key = os.getenv("OPENAI_API_KEY")
+# Configure OpenAI - Lazy Load
 client = None
 
-if api_key:
-    client = OpenAI(api_key=api_key)
-
-SYSTEM_PROMPT = "You are a cynical, high-performance hedge fund manager. Your analysis is data-driven, specific, and devoid of fluff."
+def get_openai_client():
+    global client
+    if client:
+        return client
+        
+    api_key = os.getenv("OPENAI_API_KEY")
+    print(f"DEBUG: Attempting to load OpenAI Key...")
+    if not api_key:
+        print(f"DEBUG: Key not found. Checking .env directly...")
+        env_path = find_dotenv()
+        print(f"DEBUG: .env found at: {env_path}")
+        # Force reload
+        load_dotenv(env_path, override=True)
+        api_key = os.getenv("OPENAI_API_KEY")
+        
+    if api_key:
+        print("DEBUG: OpenAI Key successfully loaded.")
+        client = OpenAI(api_key=api_key)
+        return client
+    else:
+        print("DEBUG: FATAL - OpenAI Key could not be loaded.")
+        return None
 
 def get_openai_response(prompt, max_tokens=300):
-    if not client:
+    local_client = get_openai_client()
+    if not local_client:
         return "Error: OPENAI_API_KEY not found in environment."
     try:
-        response = client.chat.completions.create(
+        response = local_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
