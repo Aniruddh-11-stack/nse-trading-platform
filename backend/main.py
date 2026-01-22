@@ -4,12 +4,12 @@ from fastapi.staticfiles import StaticFiles
 from .analysis import scan_stocks
 import os
 from typing import List
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import datetime
 import pytz
 from .ai_analyst import generate_stock_analysis
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 app = FastAPI()
 
