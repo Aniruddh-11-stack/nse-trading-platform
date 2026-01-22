@@ -13,6 +13,16 @@ load_dotenv(find_dotenv())
 
 app = FastAPI()
 
+@app.get("/api/check-env")
+def check_env():
+    key = os.getenv("OPENAI_API_KEY")
+    return {
+        "has_key": bool(key), 
+        "key_preview": f"{key[:5]}..." if key else None,
+        "env_path": find_dotenv(),
+        "cwd": os.getcwd()
+    }
+
 # Global store for latest signals
 latest_signals = []
 
