@@ -197,7 +197,7 @@ def scan_stocks(check_nse=True, check_us=True):
     if check_us and not check_nse:
         market_name = "S&P 500"
     elif check_nse and not check_us:
-        market_name = "NIFTY 500" # As requested
+        market_name = "NIFTY 200" # As requested
     elif check_us and check_nse:
          # Mixed mode - maybe see who has more signals or just say Global?
          # User said: "when USA Market is on we need S&P and when indian market we need Nifty"

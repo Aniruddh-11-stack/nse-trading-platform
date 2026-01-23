@@ -126,6 +126,12 @@
 
             // Effects
             useEffect(() => {
+                if (stats && stats.market_name) {
+                    document.title = `${stats.market_name} CCI Scanner`;
+                }
+            }, [stats]);
+
+            useEffect(() => {
                 fetchSignals();
                 fetch('/api/scan')
                     .then(res => res.json())
@@ -151,7 +157,7 @@
                     <header className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
                         <div>
                             <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
-                                NSE 200 CCI Scanner
+                                {stats ? stats.market_name : 'NSE 200'} CCI Scanner
                             </h1>
                             <p className="text-slate-400 mt-2">Monitoring 15m Timeframe for CCI &gt; 100 or CCI &lt; -100</p>
                         </div>
