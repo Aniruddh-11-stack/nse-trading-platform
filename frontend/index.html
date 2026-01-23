@@ -296,6 +296,9 @@
                                                 </div>
                                                 <div className="text-right flex-shrink-0">
                                                     <div className="text-2xl font-mono font-bold text-white">₹{s.price}</div>
+                                                    <div className={`text-xs font-mono text-right ${s.price_change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {s.price_change > 0 ? '+' : ''}{s.price_change}%
+                                                    </div>
                                                     <div className={`text-sm font-mono ${s.type === 'BULLISH' ? 'text-green-400' : 'text-red-400'}`}>CCI: {s.cci.toFixed(2)}</div>
                                                 </div>
                                             </div>
@@ -334,6 +337,7 @@
                                                 <th className="px-6 py-4">Symbol</th>
                                                 <th className="px-6 py-4">Signal</th>
                                                 <th className="px-6 py-4 text-right">Price</th>
+                                                <th className="px-6 py-4 text-right">Chg %</th>
                                                 <th className="px-6 py-4 text-right">CCI</th>
                                                 <th className="px-6 py-4 text-center">Tags</th>
                                                 <th className="px-6 py-4 text-right">Confidence</th>
@@ -355,6 +359,9 @@
                                                     </td>
                                                     <td className="px-6 py-4 text-right font-mono text-white">
                                                         ₹{s.price}
+                                                    </td>
+                                                    <td className={`px-6 py-4 text-right font-mono font-bold ${s.price_change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {s.price_change > 0 ? '+' : ''}{s.price_change}%
                                                     </td>
                                                     <td className={`px-6 py-4 text-right font-mono font-bold ${s.type === 'BULLISH' ? 'text-green-400' : 'text-red-400'}`}>
                                                         {s.cci.toFixed(2)}

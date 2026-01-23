@@ -129,6 +129,7 @@ class Signal(BaseModel):
     type: str 
     cci: float
     price: float
+    price_change: float = 0.0
     time: str
     whale_vol: bool = False
     sniper_trend: bool = False

@@ -102,22 +102,29 @@ def process_stock(stock_info):
         avg_vol = df_cci['volume'].rolling(20).mean().iloc[-1]
         is_whale = current_vol > (2.0 * avg_vol)
         
-        # 3. Sniper Filter (Daily Trend)
+        # 3. Sniper Filter (Daily Trend) & Price Change
+        trend = "NEUTRAL"
+        price_change = 0.0
+        
         try:
-             # Optimization: Fetch only if signal exists or for stats? 
-             # For speed, let's only do deep trend check if we have a signal OR if we really need it.
-             # Actually, for market breadth we just need CCI.
-             trend = "NEUTRAL"
-             if signal_type: # Only fetch daily for signals to save time/quota
+             # Fetch daily data if we have a signal
+             if signal_type: 
                  df_daily = fetch_stock_data(symbol, "1d", days=300, suffix=suffix)
-                 if not df_daily.empty and len(df_daily) > 200:
+                 if not df_daily.empty and len(df_daily) > 2:
+                      # Trend
                       ema_200 = df_daily['close'].ewm(span=200).mean().iloc[-1]
                       curr_daily_price = df_daily['close'].iloc[-1]
                       if curr_daily_price > ema_200:
                           trend = "UP"
                       else:
                           trend = "DOWN"
-        except:
+                      
+                      # Price Change %
+                      prev_close = df_daily['close'].iloc[-2]
+                      if prev_close > 0:
+                          price_change = ((curr_daily_price - prev_close) / prev_close) * 100
+        except Exception as e:
+            print(f"Error calculating stats for {symbol}: {e}")
             trend = "NEUTRAL"
         
         is_sniper_aligned = False
@@ -141,6 +148,7 @@ def process_stock(stock_info):
             "type": signal_type, # Can be None
             "cci": float(current_cci),
             "price": float(df_cci['close'].iloc[-1]),
+            "price_change": round(price_change, 2),
             "time": datetime.datetime.now().isoformat(),
             "whale_vol": bool(is_whale),
             "sniper_trend": bool(is_sniper_aligned),
@@ -260,9 +268,19 @@ def scan_stocks(check_nse=True, check_us=True):
              if (r['type'] == 'BULLISH' and sentiment_percent > 50) or \
                 (r['type'] == 'BEARISH' and sentiment_percent < 50):
                  score += 20
+             
+             # 6. Momentum (Price Change) - 20 pts
+             # Bonus for strong daily move in direction of signal
+             if r['type'] == 'BULLISH' and r['price_change'] > 1.0:
+                 score += 10
+             elif r['type'] == 'BEARISH' and r['price_change'] < -1.0:
+                 score += 10
                  
-             r['confidence'] = score
+             r['confidence'] = min(score, 100) # Cap at 100
              bullish_stocks.append(r)
+    
+    # Sort by Confidence Descending
+    bullish_stocks.sort(key=lambda x: x['confidence'], reverse=True)
     
     stats = {
         "total_targets": len(scan_targets),
