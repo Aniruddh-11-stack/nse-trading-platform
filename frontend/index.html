@@ -107,7 +107,12 @@
                     const data = await res.json();
                     setSelectedAnalysis(prev => ({ ...prev, content: data.analysis, loading: false }));
                 } catch (err) {
-                    setSelectedAnalysis(prev => ({ ...prev, content: "Error: AI unavailable.", loading: false }));
+                    console.error("AI Analysis Error:", err);
+                    setSelectedAnalysis(prev => ({
+                        ...prev,
+                        content: `Error: ${err.message || "AI unavailable."}`,
+                        loading: false
+                    }));
                 } finally {
                     setAnalyzing(false);
                 }
