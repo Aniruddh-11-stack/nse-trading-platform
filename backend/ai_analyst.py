@@ -30,6 +30,8 @@ def get_openai_client():
         print("DEBUG: FATAL - OpenAI Key could not be loaded.")
         return None
 
+SYSTEM_PROMPT = "You are a cynical, high-performance hedge fund manager. Your analysis is data-driven, specific, and devoid of fluff."
+
 def get_openai_response(prompt, max_tokens=300):
     local_client = get_openai_client()
     if not local_client:
